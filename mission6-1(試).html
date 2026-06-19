@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賞味期限・在庫管理システム </title>
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --primary-dark: #27ae60;
+            --bg-color: #f4f7f6;
+            --text-main: #2c3e50;
+            --text-sub: #7f8c8d;
+            
+            /* 保存場所カラー */
+            --fridge-color: #2cbd6c;
+            --freezer-color: #3498db;
+            
+            /* ご指定の条件カラーシステム */
+            --color-expired: #545151; /* グレー：期限切れ */
+            --color-today: #ef0e0e;   /* 赤：当日 */
+            --color-warn2: #f3c73a;   /* 黄：2日以内 */
+            --color-warn5: #a9d31e;   /* 黄緑：5日以内 */
+            --color-safe: #18d34a;    /* 緑：余裕あり */
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-main); line-height: 1.5; }
+        h1 { color: var(--text-main); border-bottom: 3px solid var(--primary); padding-bottom: 12px; text-align: center; font-size: 26px; font-weight: 700; margin-bottom: 30px; }
+        .section { background: white; padding: 24px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eaeded; }
+        h3 { color: var(--text-main); border-left: 5px solid var(--primary); padding-left: 12px; margin-top: 0; margin-bottom: 15px; font-size: 18px; font-weight: 600; }
+        
+        /* カテゴリ見出し */
+        .category-heading { background-color: #e8f8f5; color: #16a085; padding: 10px 16px; border-radius: 6px; margin-top: 25px; margin-bottom: 12px; font-size: 16px; font-weight: bold; box-shadow: inset 2px 0 0 #16a085; }
+
+        /* ボタン共通 */
+        button { font-size: 15px; padding: 10px 18px; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        button:active { transform: scale(0.97); }
+        
+        .add-btn { background-color: var(--primary); }
+        .add-btn:hover { background-color: var(--primary-dark); }
+        
+        .quick-btn { background-color: #7f8c8d; margin-right: 10px; margin-bottom: 10px; position: relative; padding: 10px 28px 10px 14px; font-size: 14px; border-radius: 8px; }
+        .quick-btn.fridge-btn { background-color: var(--fridge-color); }
+        .quick-btn.freezer-btn { background-color: var(--freezer-color); }
+        .quick-btn:hover { opacity: 0.9; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+        .template-delete-btn { position: absolute; top: -6px; right: -6px; background-color: #e74c3c; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; line-height: 22px; padding: 0; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        /* 入力フォーム関係 */
+        input, select { font-size: 16px; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; background-color: #fff; color: var(--text-main); }
+        input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(46,204,113,0.15); }
+        label { font-weight: 600; margin-bottom: 6px; color: #495057; font-size: 14px; }
+        
+        /* ショートカット用ミニタグ */
+        .shortcut-tag { background: #e9ecef; color: #495057; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600; border: 1px solid #dee2e6; margin-right: 5px; margin-bottom: 10px; display: inline-block; transition: all 0.2s; }
+        .shortcut-tag:hover { background: #ced4da; color: #212529; }
+
+        /* 場所切り替えタブUI */
+        .tab-container { display: flex; width: 100%; border-bottom: 2px solid #3498db; margin-bottom: 15px; gap: 4px; }
+        .tab-btn { background: #e9ecef; color: #495057; border: none; padding: 10px 20px; font-size: 15px; font-weight: bold; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; flex-grow: 1; text-align: center; }
+        .tab-btn:hover { background: #dee2e6; }
+        .tab-btn.active { background: #3498db; color: white; }
+
+        /* テーブル */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: white; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #eff2f5; }
+        th { background-color: #f8f9fa; color: var(--text-sub); font-weight: 600; font-size: 14px; border-bottom: 2px solid #dee2e6; }
+        
+        /* 状態別カラーバッジ */
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; text-align: center; color: white; }
+        
+        .loc-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; margin-right: 4px; }
+        .loc-fridge { background-color: var(--fridge-color); }
+        .loc-freezer { background-color: var(--freezer-color); }
+        
+        /* 数量コントロールUI */
+        .qty-controls { display: inline-flex; align-items: center; background: #f1f3f5; border-radius: 6px; padding: 2px; border: 1px solid #dee2e6; }
+        .qty-btn { background: white; color: var(--text-main); width: 32px; height: 32px; padding: 0; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 16px; }
+        .qty-btn:hover { background: #f8f9fa; }
+        .qty-val { min-width: 35px; text-align: center; font-weight: 700; font-size: 15px; color: var(--text-main); }
+        
+        /* アクション系ボタン */
+        .clear-btn { background-color: #ba3c3c; padding: 8px 14px; font-size: 14px; }
+        .clear-btn:hover { background-color: #a13030; }
+        .delete-icon-btn { background-color: #fee2e2; color: #ef4444; padding: 8px; border-radius: 6px; }
+        .delete-icon-btn:hover { background-color: #fca5a5; color: #b91c1c; }
+        
+        .flex-container { display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; }
+        
+        /* 検索窓 */
+        .search-input { width: 220px; padding: 8px 12px 8px 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%237f8c8d' class='bi bi-search'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 10px center; font-size: 14px; margin: 0; height: 38px; }
+
+        /* 📱 スマホ用レスポンシブスタイル */
+        @media screen and (max-width: 600px) {
+            body { margin: 10px; }
+            h1 { font-size: 20px; margin-bottom: 15px; }
+            .section { padding: 16px; margin-bottom: 15px; }
+
+            .section-header { flex-direction: column; align-items: stretch !important; gap: 12px; }
+            .control-group { flex-direction: column; align-items: stretch !important; gap: 10px; width: 100%; }
+            .control-group > div { width: 100%; }
+            .search-input { width: 100% !important; }
+            #sortOption { width: 100% !important; height: 40px; }
+            .clear-btn { width: 100%; height: 40px; margin: 0; }
+
+            .flex-container { flex-direction: column; align-items: stretch; gap: 10px; }
+            .input-group { width: 100%; }
+            input, select, .add-btn { width: 100% !important; height: 45px; margin-bottom: 2px; }
+            .shortcut-container { margin-top: -5px; margin-bottom: 5px; }
+            
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr { border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 15px; padding: 12px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+            td { border: none; border-bottom: 1px dashed #eff2f5; position: relative; padding-left: 40%; text-align: right; padding-top: 10px; padding-bottom: 10px; font-size: 15px; }
+            td:nth-of-type(1) { font-size: 17px; text-align: right; font-weight: bold; }
+            td:nth-of-type(1)::before { content: "食材名"; }
+            td:nth-of-type(2)::before { content: "賞味期限"; }
+            td:nth-of-type(3)::before { content: "数量"; }
+            td:nth-of-type(4)::before { content: "状態"; }
+            td:nth-of-type(5)::before { content: "メモ"; }
+            td:last-child { border-bottom: none; text-align: right; padding-left: 40%; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+            td::before { position: absolute; top: 12px; left: 12px; width: 35%; text-align: left; font-weight: 600; color: var(--text-sub); font-size: 13px; }
+            .qty-controls { scale: 0.9; transform-origin: right center; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📋 賞味期限・在庫管理システム </h1>
+
+    <div class="section" style="background: linear-gradient(145deg, #ffffff, #fcfdfd); border-top: 4px solid var(--primary);">
+        <h3 id="datetime" style="margin:0; border:none; padding:0; color: var(--text-main); font-size: 16px;">読み込み中...</h3>
+    </div>
+
+    <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;">📋 「よく使う商品」のマスター登録</h3>
+            <button onclick="toggleTemplateForm()" id="templateToggleBtn" style="background-color: #7f8c8d; font-size: 13px; padding: 6px 14px;">🛠️ 登録欄を開く</button>
+        </div>
+        
+        <div id="templateFormContainer" style="display: none; margin-top: 20px; border-top: 1px dashed #dee2e6; padding-top: 15px;">
+            <div class="flex-container">
+                <div class="input-group">
+                    <label for="templateName">商品名</label>
+                    <input type="text" id="templateName" placeholder="例：キャベツ（カット）">
+                </div>
+                <div class="input-group">
+                    <label for="templateCategory">カテゴリ</label>
+                    <select id="templateCategory">
+                        <option value="肉類">肉類</option>
+                        <option value="飲み物">飲み物</option>
+                        <option value="野菜類">野菜類</option> <option value="その他">その他</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="templateLocation">デフォルト保存場所</label>
+                    <select id="templateLocation">
+                        <option value="fridge">🥬 冷蔵庫</option>
+                        <option value="freezer">🧊 冷凍庫</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="templateDays">期限（日後）</label>
+                    <input type="number" id="templateDays" value="3" min="1" style="width: 90px;">
+                </div>
+                <button class="add-btn" onclick="addTemplate()">マスターに保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section" style="background-color: #fdfefe;">
+        <h3>🛒 よく使う商品を棚に追加（固定ボタン）</h3>
+        <div id="quickItemContainer"></div>
+        <p style="font-size: 13px; color: var(--text-sub); margin-top: 5px; margin-bottom: 0;">※タップするとマスター指定の場所に即座に「1個」追加されます。緑＝冷蔵、青＝冷凍。</p>
+    </div>
+
+    <div class="section">
+        <h3>✏️ 食材を手動登録</h3>
+        <div class="flex-container">
+            <div class="input-group">
+                <label for="itemName">食材名</label>
+                <input type="text" id="itemName" placeholder="例：レタス">
+            </div>
+            <div class="input-group">
+                <label for="itemCategory">カテゴリ</label>
+                <select id="itemCategory">
+                    <option value="肉類">肉類</option>
+                    <option value="飲み物">飲み物</option>
+                    <option value="野菜類" selected>野菜類</option> <option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="itemLocation">保存場所</label>
+                <select id="itemLocation">
+                    <option value="fridge" selected>🥬 冷蔵庫</option>
+                    <option value="freezer">🧊 冷凍庫</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="itemDate">賞味期限</label>
+                <input type="date" id="itemDate">
+                <div class="shortcut-container">
+                    <span class="shortcut-tag" onclick="setShortcutDate(0)">今日</span>
+                    <span class="shortcut-tag" onclick="setShortcutDate(3)">3日後</span>
+                    <span class="shortcut-tag" onclick="setShortcutDate(7)">1週間後</span>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="itemCount">初期個数</label>
+                <input type="number" id="itemCount" value="1" min="1" style="width: 80px;">
+            </div>
+            <div class="input-group">
+                <label for="itemMemo">メモ</label>
+                <input type="text" id="itemMemo" placeholder="例：要洗浄" style="width: 140px;">
+                <div class="shortcut-container">
+                    <span class="shortcut-tag" onclick="appendMemoTag('開封済')">開封</span>
+                    <span class="shortcut-tag" onclick="appendMemoTag('仕込済')">仕込</span>
+                    <span class="shortcut-tag" onclick="appendMemoTag('要加熱')">加熱</span>
+                </div>
+            </div>
+            <button class="add-btn" onclick="addManualItem()" style="margin-bottom: 10px;">保管庫に入れる</button>
+        </div>
+    </div>
+
+    <div class="section" style="border-top: 4px solid #3498db; padding-bottom: 10px;">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 10px;">
+            <h3 style="margin: 0; border-left-color: #3498db;">❄️ 保管庫の在庫一覧</h3>
+            <div class="control-group" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <input type="text" id="searchQuery" class="search-input" oninput="updateFoodView()" placeholder="🔎 食材・メモをリアルタイム検索...">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <select id="sortOption" onchange="updateFoodView()" style="margin: 0; padding: 8px 12px; font-size: 14px; height: 38px;">
+                        <option value="category">カテゴリ別（期限順）</option>
+                        <option value="date_asc">賞味期限が近い順（全体）</option>
+                        <option value="id_desc">新しく登録した順（全体）</option>
+                    </select>
+                </div>
+                <button class="clear-btn" onclick="deleteExpiredItems()">🗑️ 表示中の期限切れを一括削除</button>
+            </div>
+        </div>
+
+        <div class="tab-container">
+            <button type="button" class="tab-btn active" id="tab-all" onclick="changeLocationFilter('all')">🌐 全て表示</button>
+            <button type="button" class="tab-btn" id="tab-fridge" onclick="changeLocationFilter('fridge')">🥬 冷蔵庫</button>
+            <button type="button" class="tab-btn" id="tab-freezer" onclick="changeLocationFilter('freezer')">🧊 冷凍庫</button>
+        </div>
+
+        <div id="foodTableContainer"></div>
+    </div>
+
+    <div class="section" style="background-color: #f8f9fa; border: 1px dashed #ced4da;">
+        <h3 style="border-left-color: #7f8c8d; color: #6c757d; font-size: 15px;">⚙️ システム管理（データのバックアップと復元）</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="exportData()" style="background-color: #6c757d; font-size: 13px; padding: 8px 14px;">📥 データをファイルに書き出す</button>
+            <button onclick="document.getElementById('importFile').click()" style="background-color: #495057; font-size: 13px; padding: 8px 14px;">📤 ファイルからデータを復元する</button>
+            <input type="file" id="importFile" onchange="importData(event)" style="display: none;" accept=".json">
+        </div>
+    </div>
+
+    <script src="mission6-1(試).js"></script>
+</body>
+</html>
